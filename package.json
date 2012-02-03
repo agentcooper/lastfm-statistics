@@ -1,5 +1,6 @@
 {
-  "name": "Last.fm monthly charts",
+  "name": "lastfm-statistics",
+  "version": "0.0.1",
   "description": "Get a monthly chart for your artists",
   "author": "Artem Tyurin <artem.tyurin@gmail.com>",
   "dependencies": {
