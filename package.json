@@ -1,0 +1,10 @@
+{
+  "name": "Last.fm monthly charts",
+  "description": "Get a monthly chart for your artists",
+  "author": "Artem Tyurin <artem.tyurin@gmail.com>",
+  "dependencies": {
+    "request": "2.x.x",
+    "async": "0.1.x"
+  },
+  "engine": "node >= 0.4.1"
+}
