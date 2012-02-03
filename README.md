@@ -8,7 +8,7 @@ Start the server
 node app.js
 ```
 
-Then go to your localhost
+Then go to your localhost, that's all :-)
 
 ### Preview
 
