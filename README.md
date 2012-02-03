@@ -2,6 +2,12 @@
 
 ### How to use
 
+Install the dependencies
+
+```
+npm install -d
+```
+
 Start the server
 
 ```
