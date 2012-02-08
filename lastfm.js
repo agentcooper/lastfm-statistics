@@ -1,6 +1,5 @@
-var request = require('request'),
-    qs = require('querystring'),
-    async = require('async');
+var request = request || require('request'),
+    async = async || require('async');
 
 var lastfm = {
   timeout: {
@@ -9,6 +8,16 @@ var lastfm = {
   }
 },
 api_key = 'b25b959554ed76058ac220b7b2e0a026';
+
+var qs = {
+  stringify: function(obj) {
+    var res = "";
+    for (key in obj) {
+      res += key + '=' + encodeURIComponent(obj[key]) + '&';
+    }
+    return res.slice(0, -1);
+  }
+}
 
 function getRandom(a, b) {
   return Math.floor(Math.random() * (b - a + 1) + a);
@@ -39,14 +48,16 @@ function getPage(user, artist, page, callback) {
   });
 }
 
-lastfm.getTracks = function(user, artist, cb) {
+lastfm.getTracks = function(user, artist, cb) {  
   console.time(artist);
-  var tracks = [];
+  var tracks = [], done = 0;
   
   var q = async.queue(function(page, callback) {
     getPage(user, artist, page, function(pagetracks) {
       console.log('Got', page, artist);
       tracks = tracks.concat(pagetracks.tracks.track);
+      
+      if (lastfm.pageNotify) lastfm.pageNotify(done += 100 / pagetracks.pages, user, artist);
       
       setTimeout(callback, getRandom.apply(this, lastfm.timeout.page));
     });
@@ -62,8 +73,10 @@ lastfm.getTracks = function(user, artist, cb) {
     tracks = tracks.concat(pagetracks.tracks.track);
     
     if (pagetracks.pages == 1) {
+      if (lastfm.pageNotify) lastfm.pageNotify(100, user, artist);
       cb(tracks);
     } else {
+      if (lastfm.pageNotify) lastfm.pageNotify(done += 100 / pagetracks.pages);
       for (var i = 2; i <= pagetracks.pages; i++) q.push(i);
     }
   });
@@ -95,7 +108,7 @@ lastfm.getMultipleStats = function(data, callback) {
     all = res.statistics;
     
     function hash(a, b) { return escape(a) + '|' + escape(b); }
-    
+
     async.forEachLimit(data, 1, function(item, cont) {
       lastfm.getMonthlyStats(item.username, item.artist, function(stat){
         console.log("Got %s's monthly stats for %s", stat.username, stat.artist);
@@ -125,4 +138,4 @@ lastfm.getMultipleStats = function(data, callback) {
     });
 }
 
-module.exports = lastfm;
+if (typeof module != 'undefined') module.exports = lastfm;

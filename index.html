@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:fb="http://www.facebook.com/2008/fbml">
+  <head>
+    <meta charset="utf-8">
+    <title>Last.fm monthly playcount chart</title>
+    <meta name="description" content="Last.fm monthly playcount chart">
+    <meta name="author" content="agentcooper">
+  
+    <!-- HTML5 shim -->
+    <!--[if lt IE 9]>
+      <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+  
+    <!-- http://twitter.github.com/bootstrap/ -->
+    <link href="client/bootstrap.min.css" rel="stylesheet">
+
+    <!-- https://github.com/kriskowal/es5-shim -->
+    <script src="client/es5-shim.min.js"></script> 
+    
+    <script type='text/javascript' src='http://www.google.com/jsapi'></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js"></script>
+    
+    <!-- http://code.google.com/p/jquery-jsonp/ -->
+    <script src="client/jquery-jsonp-2.2.1.min.js"></script>
+  
+    <!-- https://github.com/mikeal/request -->
+    <script src="client/request.js"></script>
+    
+    <!-- https://github.com/caolan/async -->
+    <script src="async.min.js"></script>
+    
+    <script src="lastfm.js"></script>
+
+    <script>
+      window.console = window.console || {};
+      window.console.log = window.console.log || function() {};
+      window.console.time = window.console.time || function() {};
+      window.console.timeEnd = window.console.timeEnd || function() {};
+    </script>
+
+    <script>
+      "use strict";
+
+      function drawChart(chartData) {
+        var data = new google.visualization.DataTable();
+        data.addColumn('date', 'Date');
+  
+        chartData.data.forEach(function(pair) {
+          data.addColumn('number', "[" + pair.username+ "] " + pair.artist);
+        });
+  
+        var rows = [];
+        Object.keys(chartData.statistics).forEach(function(date) {
+          rows.push([new Date(parseInt(date))].concat(chartData.statistics[date]));
+        });
+        data.addRows(rows);
+  
+        var chart = new google.visualization.AnnotatedTimeLine(document.getElementById('chart_div'));
+        chart.draw(data, {displayExactValues: true});
+      }
+
+      function getData(data) {  
+        lastfm.getMultipleStats(data, function(tracks) {
+          var data = tracks;
+    
+          var span = Object.keys(data.statistics).map(function(s) { return parseInt(s); }).sort(),
+              min = new Date(parseInt(span[0])),
+              max = new Date(parseInt(span[span.length - 1])),
+              current = new Date(),
+              nullArray = [];
+
+          for (var i = 0; i < data.data.length; i++) nullArray.push(0);
+
+          for (var y = min.getFullYear(); y <= current.getFullYear(); y++) {
+            for (
+              var m = (y == min.getFullYear()) ? min.getMonth() : 0;
+              m < (y == current.getFullYear() ? current.getMonth() + 1 : 12);
+              m++
+            ) {
+              var hash = +new Date(y, m, 0);
+              if (!data.statistics.hasOwnProperty(hash)) data.statistics[hash] = nullArray.slice(0);
+            }
+          }
+    
+          drawChart(data);
+    
+          controls(true);
+        });
+      }
+
+      function controls(enabled) {
+        if (enabled) {
+          $('#draw-chart').removeClass('disabled');
+          $('#add').removeClass('disabled');
+        } else {
+          $('#draw-chart').addClass('disabled');
+          $('#add').addClass('disabled');
+        }
+      }
+
+      function windowReady() {
+        var form = $('#data-list').children().first().clone();
+  
+        $('#add').click(function() {
+          if ($(this).hasClass('disabled')) return;
+    
+          $('#data-list').append(form.clone());
+        });
+  
+        $('#draw-chart').click(function(e) {
+          if ($(this).hasClass('disabled')) return;
+
+          window.location.hash = $('#data-list .data').map(function(i, el) {
+            var hash = $(el).find('.username').val() + '|' + $(el).find('.artist').val();
+      
+            $(el).next('.progress').attr('data-context', hash);
+            return (hash == '|') ? '' : hash;
+          }).toArray().join(',');
+    
+          start();
+    
+          e.preventDefault();
+        });
+  
+        $(document).on('click', 'a.close', function() {
+          $(this).parent().remove();
+        });
+  
+        var hash = decodeURI(window.location.hash.slice(1));
+        if (!hash) return;
+  
+        var data = hash.split(',').map(function(pair) {
+          var parts = pair.split('|');
+          return {username: parts[0], artist: parts[1]};
+        }).map(function(obj) {
+          return form.clone()
+          .find('.username').val(obj.username).end()
+          .find('.artist').val(obj.artist).end();
+        });
+  
+        $('#data-list').empty();
+        data.forEach(function(el) { $('#data-list').append(el); });
+      }
+
+      function resizer() {
+        $('#chart_div').css({
+          'width': $('#chart').width(),
+        });
+      }
+
+      function notifyProgress(p, user, artist) {
+        var progress = $('div[data-context="%context%"]'.replace('%context%', user + '|' + artist));
+
+        progress.find('.bar').css({width: p + '%'});
+        if (p >= 99) setTimeout(function() {
+          progress.slideUp('fast');
+        }, 1000);
+      }
+      
+      function input() {
+        var hash = decodeURI(window.location.hash.slice(1));
+        if (!hash) return null;
+  
+        return hash.split(',').map(function(pair) {
+          var parts = pair.split('|');
+          return {username: parts[0], artist: parts[1]};
+        });
+      }
+
+      function start() {
+        var data = input();
+        if (!data) return;
+        
+        var progress = $('.progress');
+        
+        progress.find('.bar').each(function(index, el) {
+          $(el).replaceWith($(el).clone().removeAttr('style'));
+        })
+        progress.slideDown('fast');
+
+        controls(false);
+  
+        $('#chart_div').empty().css({
+          'background-image': 'url(ajax-loader.gif)',
+          'background-position': 'center center',
+          'background-repeat': 'no-repeat'
+        });
+  
+        
+         getData(data);
+      }
+
+      lastfm.pageNotify = notifyProgress;
+
+      google.load('visualization', '1', {'packages':['annotatedtimeline']});
+      google.setOnLoadCallback(windowReady);
+    
+      $(window).resize(resizer);
+    </script>
+  </head>
+
+  <body>
+    
+    <div class="container">
+      <div class="page-header">
+      
+        <div class="row">
+          <div class="span12">
+            
+            <h1 style="display: inline-block; vertical-align: middle;">Last.fm monthly charts</h1>
+
+              <!-- AddThis Button BEGIN -->
+              <div class="addthis_toolbox addthis_default_style pull-right" style="display: inline-block; vertical-align: middle; margin-top: 5px; width: 405px;">
+              <a class="addthis_button_facebook_like" fb:like:layout="button_count" fb:like:width="100"></a>
+              <a class="addthis_button_tweet"></a>
+              <a class="addthis_button_google_plusone" g:plusone:size="medium"></a>
+              <a class="addthis_counter addthis_pill_style"></a>
+              </div>
+              <script type="text/javascript" src="http://s7.addthis.com/js/250/addthis_widget.js#pubid=ra-4f328f0629a6bb2a"></script>
+              <!-- AddThis Button END -->
+
+          </div>
+        </div>
+      
+      </div>
+    
+      <div class="row">
+        <div class="span3">
+        
+          <div id='data-list'>
+                    
+            <div class="well">
+              <a class="close">&times;</a>
+            
+              <div class="data">
+                <input class="username span2" type="text" placeholder="Username">
+                <input class="artist span2" type="text" placeholder="Artist">
+              </div>
+            
+              <div class="progress" id="data-progress" style="display: none;">
+                <div class="bar" style="width: 0%;"></div>
+              </div>
+            </div>
+          
+          </div>
+        
+          <div class="pull-right">
+            <a class="btn" href="#" id="add"><i class="icon-refresh"></i>Add</a>
+            <a class="btn btn-primary" href="#" id="draw-chart">Draw chart</a>
+          </div>
+        </div>
+      
+        <div class="span9" id="chart">
+          <div id='chart_div' style='height: 400px; background-color: whiteSmoke;'></div>
+        </div>
+      </div>
+      
+    </div>
+    
+  </body>
+</html>
