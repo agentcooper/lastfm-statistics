@@ -7,7 +7,7 @@ function request(options, callback) {
       callback && callback(null, {statusCode: 200}, data);
     },
     "error": function(d) {
-        alert("fuck");
+        alert("Something terrible happened");
     }
   });
 }
